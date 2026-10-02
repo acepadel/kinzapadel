@@ -295,7 +295,12 @@ details.more[open] summary{margin-bottom:10px}
 
   // ---------- helpers ----------
   const time12 = t => { if (!t) return ''; let [h, mi] = t.split(':').map(Number); h = h % 24; return `${((h + 11) % 12) + 1}:${String(mi).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
-  const sorted = list => list.sort((a, b) => (a.day - b.day) || String(a.time).localeCompare(String(b.time)) || String(a.court).localeCompare(String(b.court)) || String(a.cat).localeCompare(String(b.cat)));
+  // All matches are in the evening; times from midnight to 5:59 belong to the end of that day,
+  // and are stored as 24:00-29:59 so they sort after 11 PM.
+  const tMin = t => { if (!t) return 9999; let [h, mi] = String(t).split(':').map(Number); if (h < 6) h += 24; return h * 60 + (mi || 0); };
+  const toInput = t => { if (!t) return ''; const [h, mi] = String(t).split(':').map(Number); return String(h % 24).padStart(2, '0') + ':' + String(mi || 0).padStart(2, '0'); };
+  const fromInput = t => { if (!t) return ''; let [h, mi] = String(t).split(':').map(Number); if (h < 6) h += 24; return String(h).padStart(2, '0') + ':' + String(mi || 0).padStart(2, '0'); };
+  const sorted = list => list.sort((a, b) => (a.day - b.day) || (tMin(a.time) - tMin(b.time)) || String(a.court).localeCompare(String(b.court)) || String(a.cat).localeCompare(String(b.cat)));
   const inCat = m => S.cat === 'All' || m.cat === S.cat;
   const players = t => String(t || '').split('+').map(p => p.trim()).filter(Boolean);
   const ago = t => { if (!t) return ''; const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`; };
@@ -489,7 +494,7 @@ details.more[open] summary{margin-bottom:10px}
           <label class="full">Team 2<input id="e-t2" value="${esc(m.t2)}"></label>
           <label class="full">Set scores (Team 1 first)<input id="e-sets" value="${esc(setsArr(m).map(x => x.join('-')).join(', '))}" placeholder="6-4, 3-6, 10-8"></label>
           <label>Status<select id="e-status"><option value="scheduled">Upcoming</option><option value="live">Live</option><option value="final">Final</option></select></label>
-          <label>Time<input id="e-time" type="time" value="${esc(m.time)}"></label>
+          <label>Time<input id="e-time" type="time" value="${esc(toInput(m.time))}"></label>
           <label>Court<input id="e-court" value="${esc(m.court)}"></label>
           <label>Group<input id="e-group" value="${esc(m.group)}"></label>
           <label>Day<select id="e-day">${DAYS.map(d => `<option value="${d.n}" ${d.n === m.day ? 'selected' : ''}>Day ${d.n}</option>`).join('')}</select></label>
@@ -637,7 +642,7 @@ details.more[open] summary{margin-bottom:10px}
       if (!v('a-t1') || !v('a-t2') || !v('a-time')) return toast('Fill in both teams and the time.');
       const day = +v('a-day'), cat = v('a-cat');
       const id = `d${day}-${cat}-${Date.now().toString(36)}`;
-      const doc = {day, cat, court: v('a-court'), time: v('a-time'), t1: v('a-t1'), t2: v('a-t2'), group: v('a-group'), bo: 1, games: CAT_FMT[cat].games, tbAt: CAT_FMT[cat].tbAt, deuce: 'adv1', status: 'scheduled', s: [], g: {a: 0, b: 0}, winner: null, hist: [], t: 0};
+      const doc = {day, cat, court: v('a-court'), time: fromInput(v('a-time')), t1: v('a-t1'), t2: v('a-t2'), group: v('a-group'), bo: 1, games: CAT_FMT[cat].games, tbAt: CAT_FMT[cat].tbAt, deuce: 'adv1', status: 'scheduled', s: [], g: {a: 0, b: 0}, winner: null, hist: [], t: 0};
       ['a-time','a-court','a-t1','a-t2'].forEach(i => $('#' + i).value = '');
       S.day = day;
       write(id, doc, true).then(() => toast('Match added.'));
@@ -646,7 +651,7 @@ details.more[open] summary{margin-bottom:10px}
       const m = M[S.open]; if (!m) return;
       const v = id => $('#' + id).value.trim();
       const s = parseSets(v('e-sets')); const status = v('e-status');
-      const patch = {t1: v('e-t1'), t2: v('e-t2'), time: v('e-time') || m.time, court: v('e-court'), group: v('e-group'), day: +v('e-day'), cat: v('e-cat'),
+      const patch = {t1: v('e-t1'), t2: v('e-t2'), time: fromInput(v('e-time')) || m.time, court: v('e-court'), group: v('e-group'), day: +v('e-day'), cat: v('e-cat'),
         bo: +v('e-bo'), games: Math.max(1, +v('e-games') || 6), tbAt: Math.max(1, +v('e-tb') || 6), deuce: v('e-deuce'), s, status,
         winner: status === 'final' ? deriveWinner(s.map(x => [x.a, x.b])) : null, hist: pushHist(m), t: Date.now()};
       if (status !== 'live') patch.g = {a: 0, b: 0};
