@@ -10,6 +10,7 @@ Firebase project: `padeltournament-ed489`.
 | `index.html` | The public page. Anyone can watch; scorekeepers sign in to enter points. |
 | `import.html` | One-time page that loads `data.json` into Firestore. Delete it after use. |
 | `data.json` | Days 1–4 schedule (111 matches) and all 20 groups. |
+| `manifest.json`, `sw.js`, `icons/` | Installable app: home-screen icon, full-screen launch, faster repeat loads. Bump `VERSION` in `sw.js` after every upload. |
 | `firestore.rules` | Security rules: everyone reads; only usernames in the `keepers` collection write. |
 
 ## Setup (about 10 minutes)

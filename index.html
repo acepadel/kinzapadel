@@ -5,11 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Live scores, schedule and group standings for the Kinza Padel Championship at Ace Padel Club, Damascus.">
 <meta name="theme-color" content="#1C4C99">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kinza Padel">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
 <title>Kinza Padel Live</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@700&display=swap">
-<style>html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font-size:15px}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%;text-size-adjust:100%}body{margin:0;font-size:15px;overflow-x:hidden}img{max-width:100%}[hidden]{display:none!important}</style>
 <style>
 /* Layout: court-blue scoreboard band on top (day strip + view tabs), then one column of
    match cards in an auto-fill grid; standings as scrollable tables; scorekeeper bottom sheet. */
@@ -33,7 +42,8 @@
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
 button,input,select{font:inherit;color:inherit}
-button{cursor:pointer}
+button{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.m.keep{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 :focus-visible{outline:2px solid var(--ball);outline-offset:2px}
 
 .band{background:var(--court);color:var(--on-court);position:relative;overflow:hidden}
@@ -42,10 +52,11 @@ button{cursor:pointer}
              linear-gradient(var(--on-court-dim),var(--on-court-dim)) 0 62%/100% 2px no-repeat;opacity:.14}
 .wrap{max-width:1080px;margin:0 auto;padding-inline:16px}
 .top{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:22px 14px}
+.brand .logo{display:block;height:34px;width:auto;background:#F0F0F0;border-radius:8px;padding:6px 10px;margin-bottom:10px}
 .brand h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,46px);line-height:.95;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
 .brand h1 span{color:var(--ball)}
 .brand .sub{margin-top:6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-court-dim)}
-.ar{font-family:var(--ar);font-size:20px;line-height:1.2;direction:rtl}
+.ar{font-family:var(--ar);font-size:20px;line-height:1.2;direction:rtl;text-align:left}
 .livecount{display:inline-flex;align-items:center;gap:8px;background:var(--court-2);border-radius:999px;padding:6px 12px;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.04em;text-transform:uppercase}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--ball);flex:none}
 .dot.on{background:var(--live);box-shadow:0 0 0 0 var(--live);animation:pulse 1.6s infinite}
@@ -92,7 +103,7 @@ main.wrap{padding-block:18px 28px;display:grid;gap:26px}
 .row.l .sets span{color:var(--muted)}
 .sets span.won{color:var(--ink)}
 .pt{min-width:38px;text-align:center;font-family:var(--display);font-weight:800;font-size:20px;line-height:1;padding:5px 6px;border-radius:7px;background:var(--ball);color:var(--on-ball)}
-.pt.empty{background:none;padding:0;min-width:0}
+.pt.empty{display:none}
 .wmark{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--win);margin-left:6px;vertical-align:middle}
 .mf{font-size:12px;color:var(--muted)}
 
@@ -115,7 +126,7 @@ td.wins{font-family:var(--display);font-weight:800;font-size:18px}
 
 /* scorekeeper sheet */
 .scrim{position:fixed;inset:0;background:rgba(5,10,20,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--surface);color:var(--ink);width:100%;max-width:580px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px}
+.sheet{background:var(--surface);color:var(--ink);width:100%;max-width:580px;max-height:92vh;max-height:92dvh;overflow-y:auto;overscroll-behavior:contain;border-radius:16px 16px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px}
 .sheet h3{margin:0;font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:10px}
 .sheet h3 .x{margin-left:auto;border:0;background:var(--soft);border-radius:8px;padding:4px 10px;font-size:14px}
 .pad{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -132,12 +143,39 @@ td.wins{font-family:var(--display);font-weight:800;font-size:18px}
 .form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .form label{display:grid;gap:4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:0}
 .form .full{grid-column:1/-1}
-.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:15px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
+.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;font-size:16px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
 .hint{font-size:12.5px;color:var(--muted);margin:0}
 details.more summary{cursor:pointer;font-weight:600;font-size:14px}
 details.more[open] summary{margin-bottom:10px}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;z-index:30;max-width:calc(100% - 32px)}
 @media (max-width:420px){ .form{grid-template-columns:1fr} .sets span{width:22px;font-size:20px} }
+/* Phones: two clean rows in the sticky bar, tables that fit without sideways scrolling */
+@media (max-width:600px){
+  .top{padding-block:16px 12px}
+  .brand .logo{height:28px;padding:5px 8px;margin-bottom:8px}
+  .brand .sub{font-size:11.5px;letter-spacing:.06em}
+  .ar{font-size:17px}
+  .livecount{font-size:14px;padding:5px 10px}
+  .bar .wrap{display:grid;grid-template-columns:1fr auto;gap:8px;padding-block:8px}
+  #cats{grid-column:1/-1;order:3}
+  #cats button,#views button{flex:1}
+  .seg button{padding:8px 10px}
+  .keeper-btn{padding:8px 10px;font-size:13.5px;white-space:nowrap}
+  main.wrap{padding-block:14px 24px;gap:22px}
+  .sec h2{font-size:20px;flex-wrap:wrap;row-gap:2px}
+  .m{padding:12px}
+  .tbl{border-radius:10px}
+  table{min-width:0;font-size:13.5px}
+  th,td{padding:8px 5px}
+  th{font-size:10.5px;letter-spacing:.05em}
+  th:nth-child(6),td:nth-child(6){display:none}
+  td:nth-child(2){white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+  td:first-child{width:22px;font-size:15px}
+  .padbtn{min-height:130px}
+  .padbtn .big{font-size:48px}
+  .sheet{padding-inline:14px}
+}
+@media (max-width:360px){ #keeper{font-size:12.5px} .day{min-width:58px} }
 </style>
 </head>
 <body>
@@ -145,6 +183,7 @@ details.more[open] summary{margin-bottom:10px}
 <div class="band">
   <div class="wrap top">
     <div class="brand">
+      <img class="logo" src="icons/logo-wide.png" alt="Ace Padel Club" width="320" height="76">
       <div class="ar" lang="ar">بطولة كينزا للبادل</div>
       <h1>Kinza Padel <span>Live</span></h1>
       <div class="sub">Ace Padel Club · Damascus · Categories B, C, D</div>
@@ -267,6 +306,11 @@ details.more[open] summary{margin-bottom:10px}
       const n = Object.values(M).filter(m => m.day === d.n && m.status === 'live').length;
       return `<button class="day" data-day="${d.n}" aria-pressed="${S.day === d.n}"><b>Day ${d.n}${n ? ' •' : ''}</b><small>${esc(d.label)}</small></button>`;
     }).join('');
+    if (renderDays.last !== S.day) {
+      renderDays.last = S.day;
+      const box = $('#days'), el = box.querySelector('[aria-pressed="true"]');
+      if (el) box.scrollLeft = el.offsetLeft - (box.clientWidth - el.clientWidth) / 2;
+    }
   }
   function renderLiveCount() {
     const n = Object.values(M).filter(m => m.status === 'live').length;
@@ -384,7 +428,7 @@ details.more[open] summary{margin-bottom:10px}
       if (T.group) h += `<div class="subh">Group ${esc(T.group)}${S.keeper ? ` <button class="btn" style="font-family:var(--body);letter-spacing:0;text-transform:none;padding:3px 10px;font-size:13px" data-gedit="${esc(T.cat + '|' + T.group)}">Edit group</button>` : ''}</div>`;
       h += `<div class="tbl"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Sets</th><th>Games</th><th>±</th></tr></thead><tbody>${rows.map((r, i) => {
         const d = r.GW - r.GL;
-        return `<tr class="${i < 2 && r.P ? 'top3' : ''}"><td>${i + 1}</td><td>${esc(r.name)}${r.ph ? ' <span class="mf">to be confirmed</span>' : ''}</td><td>${r.P}</td><td class="wins">${r.W}</td><td>${r.L}</td><td>${r.SW}–${r.SL}</td><td>${r.GW}–${r.GL}</td><td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
+        return `<tr class="${i < 2 && r.P ? 'top3' : ''}"><td>${i + 1}</td><td>${tplayers(r.name).map(p => `<span style="display:block">${esc(p)}</span>`).join('') || esc(r.name)}${r.ph ? ' <span class="mf">to be confirmed</span>' : ''}</td><td>${r.P}</td><td class="wins">${r.W}</td><td>${r.L}</td><td>${r.SW}–${r.SL}</td><td>${r.GW}–${r.GL}</td><td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     });
     h += '</section>';
@@ -424,7 +468,16 @@ details.more[open] summary{margin-bottom:10px}
     </form></section>`;
   }
 
+  let wakeLock = null;
+  const keepAwake = on => {
+    try {
+      if (on && !wakeLock && navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => { wakeLock = null; }); }).catch(() => {});
+      if (!on && wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+    } catch (e) {}
+  };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.open) keepAwake(true); });
   function openSheet(id) {
+    keepAwake(true);
     const m = M[id]; if (!m) return; S.open = id;
     const f = fmtOf(m);
     $('#sheetRoot').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Score this match">
@@ -504,7 +557,7 @@ details.more[open] summary{margin-bottom:10px}
       </form></div></div>`;
     $('#l-email').focus();
   }
-  function closeSheet() { S.open = null; S.gopen = null; $('#sheetRoot').innerHTML = ''; }
+  function closeSheet() { keepAwake(false); S.open = null; S.gopen = null; $('#sheetRoot').innerHTML = ''; }
 
   function write(id, patch, isSet) {
     M[id] = {...(isSet ? {} : M[id]), ...patch, id};
@@ -617,6 +670,7 @@ details.more[open] summary{margin-bottom:10px}
     appId: "1:663039407255:web:f99230f8969a25582025d2"
   });
     db = firebase.firestore(); auth = firebase.auth();
+    db.enablePersistence({synchronizeTabs: true}).catch(() => {}); // last scores stay visible offline
   } catch (err) { db = null; loaded = true; render(); }
   if (db) {
     auth.onAuthStateChanged(u => { user = u; if (!u) S.keeper = false; writeBlocked = false; render(); });
@@ -630,6 +684,9 @@ details.more[open] summary{margin-bottom:10px}
     }, () => { loaded = true; toast('Live connection lost. Reload the page to reconnect.'); render(); });
   }
 })();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 </body>
 </html>
