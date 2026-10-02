@@ -489,13 +489,16 @@ details.more[open] summary{margin-bottom:10px}
       </form></div></div>`;
   }
   const failToast = err => toast(err && err.code === 'permission-denied' ? 'This account is not on the scorekeeper list. Ask the organizer to add it.' : 'Could not save that change. Check the connection and try again.');
+  // Scorekeepers sign in with a username; Firebase needs an email, so the page adds a fixed domain.
+  const KEEPER_DOMAIN = 'kinzapadel.com';
+  const loginId = u => { u = String(u).trim().toLowerCase(); return u.includes('@') ? u : u + '@' + KEEPER_DOMAIN; };
   function openLogin() {
     S.open = null;
     $('#sheetRoot').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Scorekeeper sign in">
       <h3>Scorekeeper sign in<button class="x" data-act="close">Close</button></h3>
       <p class="hint">Only scorekeepers need to sign in. Everyone else can watch without an account.</p>
       <form id="loginf" class="form">
-        <label class="full">Email<input id="l-email" type="email" autocomplete="username" required></label>
+        <label class="full">Username<input id="l-email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
         <label class="full">Password<input id="l-pass" type="password" autocomplete="current-password" required></label>
         <div class="acts full"><button class="btn pri" type="submit">Sign in</button></div>
       </form></div></div>`;
@@ -571,9 +574,9 @@ details.more[open] summary{margin-bottom:10px}
     }
     if (e.target.id === 'loginf') {
       const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
-      auth.signInWithEmailAndPassword($('#l-email').value.trim(), $('#l-pass').value)
+      auth.signInWithEmailAndPassword(loginId($('#l-email').value), $('#l-pass').value)
         .then(() => { closeSheet(); S.keeper = true; writeBlocked = false; render(); toast('Signed in. Tap a match to keep score.'); })
-        .catch(err => { btn.disabled = false; toast(/password|credential|user-not-found/.test(err.code || '') ? 'Wrong email or password.' : err.code === 'auth/too-many-requests' ? 'Too many tries. Wait a minute and try again.' : 'Sign in failed. Check the connection.'); });
+        .catch(err => { btn.disabled = false; toast(/password|credential|user-not-found/.test(err.code || '') ? 'Wrong username or password.' : err.code === 'auth/too-many-requests' ? 'Too many tries. Wait a minute and try again.' : 'Sign in failed. Check the connection.'); });
       return;
     }
     if (e.target.id === 'addf') {

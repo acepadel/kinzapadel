@@ -29,7 +29,7 @@
   <p class="muted">Copies the schedule and groups from <code>data.json</code> into Firestore. Run it once, then delete this page from the site.</p>
 
   <form class="card" id="login">
-    <label>Scorekeeper email<input id="email" type="email" autocomplete="username" required></label>
+    <label>Scorekeeper username<input id="email" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
     <label>Password<input id="pass" type="password" autocomplete="current-password" required></label>
     <div class="row"><button type="submit">Sign in</button></div>
   </form>
@@ -65,14 +65,14 @@
 
   $('login').addEventListener('submit', e => {
     e.preventDefault();
-    auth.signInWithEmailAndPassword($('email').value.trim(), $('pass').value)
+    auth.signInWithEmailAndPassword((u => u.includes('@') ? u : u + '@kinzapadel.com')($('email').value.trim().toLowerCase()), $('pass').value)
       .catch(err => log('Sign in failed: ' + err.code, 'bad'));
   });
 
   auth.onAuthStateChanged(async u => {
     $('login').hidden = !!u; $('panel').hidden = !u;
     if (!u) return;
-    $('who').textContent = 'Signed in as ' + u.email;
+    $('who').textContent = 'Signed in as ' + u.email.split('@')[0];
     try {
       data = await (await fetch('data.json', {cache: 'no-store'})).json();
       const snap = await db.collection('matches').get();
@@ -102,7 +102,7 @@
       log('Open index.html to check, then delete import.html from the site.');
     } catch (err) {
       log('Import failed: ' + (err.code || err.message), 'bad');
-      if (err.code === 'permission-denied') log('This email has no document in the keepers collection yet. Add it in the Firebase console and try again.', 'bad');
+      if (err.code === 'permission-denied') log('This username has no document in the keepers collection yet. Add it in the Firebase console and try again.', 'bad');
       $('go').disabled = false;
     }
   });

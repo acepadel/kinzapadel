@@ -10,21 +10,25 @@ Firebase project: `padeltournament-ed489`.
 | `index.html` | The public page. Anyone can watch; scorekeepers sign in to enter points. |
 | `import.html` | One-time page that loads `data.json` into Firestore. Delete it after use. |
 | `data.json` | Days 1–4 schedule (111 matches) and all 20 groups. |
-| `firestore.rules` | Security rules: everyone reads; only people in the `keepers` collection write. |
+| `firestore.rules` | Security rules: everyone reads; only usernames in the `keepers` collection write. |
 
 ## Setup (about 10 minutes)
 
 1. **Firestore:** done. (Database created in production mode.)
 2. **Turn on sign-in.** Build → Authentication → Sign-in method → Email/Password → Enable.
-3. **Create the accounts.** Authentication → Users → Add user, once per person who may edit (yourself first).
-4. **Approve them as scorekeepers.** Firestore Database → Data → Start collection → ID `keepers`.
-   Add one document per person: **Document ID = their email in lowercase** (for example `name@gmail.com`).
-   The document needs one field; anything works, for example `name` (string) = their name.
-5. **Publish the rules.** Firestore Database → Rules → paste all of `firestore.rules` → Publish.
-6. **Allow your domain.** Authentication → Settings → Authorized domains → add the site's domain (for example `taweltysy.com`).
-7. **Put the files online.** Push this folder to a GitHub repo with Pages on (a repo named `padel` appears as `taweltysy.com/padel`).
-8. **Import the data.** Open `import.html` on the live site, sign in, press Import. It skips matches that already exist unless you tick Overwrite, so it never wipes live scores.
-9. **Delete `import.html`** from the repo.
+3. **Block self sign-up.** Authentication → Settings → User actions → untick **Enable create (sign-up)** → Save.
+   Only you can create accounts, from the console.
+4. **Create the scorekeeper logins.** Authentication → Users → Add user, once per person (yourself first).
+   For username `ahmad`, the email is **`ahmad@kinzapadel.com`** and you choose the password.
+   The address never receives mail; it's only a login ID. Scorekeepers type just `ahmad` on the site.
+5. **Approve them.** Firestore Database → Data → Start collection → ID `keepers`.
+   Add one document per person: **Document ID = the username in lowercase** (`ahmad`), with one field, for example `name` = their full name.
+6. **Publish the rules.** Firestore Database → Rules → paste all of `firestore.rules` → Publish.
+7. **Allow the site's address.** Authentication → Settings → Authorized domains → add it (for example `kinzapadel.github.io`).
+   Not needed if you host on Firebase Hosting (`padeltournament-ed489.web.app`).
+8. **Put the files online.** GitHub organization repo named `<org>.github.io`, or Firebase Hosting.
+9. **Import the data.** Open `import.html` on the live site, sign in, press Import. It skips matches that already exist unless you tick Overwrite, so it never wipes live scores.
+10. **Delete `import.html`** from the site.
 
 ## Who can do what
 
@@ -41,8 +45,9 @@ Scorekeepers press **Scorekeeper sign in**, then:
 
 ## Adding or removing a scorekeeper
 
-- **Add:** create the user in Authentication, then add a document with their lowercase email as the ID in `keepers`.
-- **Remove:** delete their document from `keepers`. They lose edit rights right away, even if they are still signed in.
+- **Add:** Authentication → Add user `username@kinzapadel.com` with a password, then add `keepers/username` in Firestore. Give them the username and password.
+- **Remove:** delete their `keepers` document. They lose edit rights right away, even if still signed in. Disable or delete the login too.
+- **Forgotten password:** reset emails can't be delivered to these addresses. Delete the user in Authentication and add them again with the same username and a new password; their `keepers` document stays as it is.
 
 ## Data model
 
@@ -50,4 +55,4 @@ Scorekeepers press **Scorekeeper sign in**, then:
   `bo`, `games`, `tbAt`, `deuce` (`adv1` = one advantage then golden point, `golden`, `adv`), `status` (scheduled/live/final),
   `s` (sets as `[{a,b}]`), `g` (current game points `{a,b}`), `winner` (0/1/null), `hist` (undo stack), `t` (last update, ms).
 - `groups/{cat-name}`: `cat`, `name`, `teams` (array of "Player + Player").
-- `keepers/{email}`: one document per approved scorekeeper (lowercase email as ID). Not readable from the page.
+- `keepers/{username}`: one document per approved scorekeeper (lowercase username as ID). Not readable from the page.
