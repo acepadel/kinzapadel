@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Kinza Padel Import</title>
+<style>
+  :root{--bg:#EDF1F6;--surface:#fff;--ink:#0E1B2E;--muted:#5A6A80;--line:#D3DCE7;--court:#1C4C99;--ok:#1C8549;--bad:#D93A27}
+  @media (prefers-color-scheme:dark){:root{--bg:#09111E;--surface:#101B2C;--ink:#E7EDF6;--muted:#8B99AF;--line:#22324A;--court:#2F6BD0;--ok:#3CC779;--bad:#FF5C49;color-scheme:dark}}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:520px;margin:0 auto;padding:32px 16px;display:grid;gap:16px}
+  h1{margin:0;font-size:22px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:10px}
+  label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+  input{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+  button{font:inherit;font-weight:600;padding:9px 14px;border-radius:9px;border:0;background:var(--court);color:#fff;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .muted{color:var(--muted);font-size:13.5px;margin:0}
+  #log{white-space:pre-wrap;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;margin:0}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Kinza Padel: one-time data import</h1>
+  <p class="muted">Copies the schedule and groups from <code>data.json</code> into Firestore. Run it once, then delete this page from the site.</p>
+
+  <form class="card" id="login">
+    <label>Scorekeeper email<input id="email" type="email" autocomplete="username" required></label>
+    <label>Password<input id="pass" type="password" autocomplete="current-password" required></label>
+    <div class="row"><button type="submit">Sign in</button></div>
+  </form>
+
+  <div class="card" id="panel" hidden>
+    <p class="muted" id="who"></p>
+    <p class="muted" id="state">Checking what is already in Firestore…</p>
+    <div class="row">
+      <button id="go" disabled>Import</button>
+      <label style="display:flex;flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="overwrite" style="width:auto"> Overwrite matches that already exist</label>
+    </div>
+  </div>
+
+  <pre id="log"></pre>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyBkOtB6I3D4HajXkx4XNj7Dbsz_kliCEqQ",
+    authDomain: "padeltournament-ed489.firebaseapp.com",
+    projectId: "padeltournament-ed489",
+    storageBucket: "padeltournament-ed489.firebasestorage.app",
+    messagingSenderId: "663039407255",
+    appId: "1:663039407255:web:f99230f8969a25582025d2"
+  });
+  const db = firebase.firestore(), auth = firebase.auth();
+  const $ = id => document.getElementById(id);
+  const log = (msg, cls) => { const s = document.createElement('div'); s.textContent = msg; if (cls) s.className = cls; $('log').appendChild(s); };
+  let data = null, existing = new Set();
+
+  $('login').addEventListener('submit', e => {
+    e.preventDefault();
+    auth.signInWithEmailAndPassword($('email').value.trim(), $('pass').value)
+      .catch(err => log('Sign in failed: ' + err.code, 'bad'));
+  });
+
+  auth.onAuthStateChanged(async u => {
+    $('login').hidden = !!u; $('panel').hidden = !u;
+    if (!u) return;
+    $('who').textContent = 'Signed in as ' + u.email;
+    try {
+      data = await (await fetch('data.json', {cache: 'no-store'})).json();
+      const snap = await db.collection('matches').get();
+      existing = new Set(snap.docs.map(d => d.id));
+      $('state').textContent = `data.json has ${Object.keys(data.matches).length} matches and ${Object.keys(data.groups).length} groups. Firestore already has ${existing.size} matches.`;
+      $('go').disabled = false;
+    } catch (err) { $('state').textContent = 'Could not read data: ' + (err.code || err.message); }
+  });
+
+  $('go').addEventListener('click', async () => {
+    $('go').disabled = true;
+    const overwrite = $('overwrite').checked;
+    const writes = [];
+    for (const [id, d] of Object.entries(data.groups)) writes.push(['groups', id, d]);
+    let skipped = 0;
+    for (const [id, d] of Object.entries(data.matches)) {
+      if (existing.has(id) && !overwrite) { skipped++; continue; } // keep live scores already entered
+      writes.push(['matches', id, d]);
+    }
+    try {
+      for (let i = 0; i < writes.length; i += 400) {
+        const batch = db.batch();
+        writes.slice(i, i + 400).forEach(([c, id, d]) => batch.set(db.collection(c).doc(id), d));
+        await batch.commit();
+      }
+      log(`Done. Wrote ${writes.length} documents${skipped ? `, kept ${skipped} existing matches unchanged` : ''}.`, 'ok');
+      log('Open index.html to check, then delete import.html from the site.');
+    } catch (err) {
+      log('Import failed: ' + (err.code || err.message), 'bad');
+      if (err.code === 'permission-denied') log('This email has no document in the keepers collection yet. Add it in the Firebase console and try again.', 'bad');
+      $('go').disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

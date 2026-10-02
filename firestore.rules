@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // A scorekeeper is anyone who is signed in AND has a document in the
+    // "keepers" collection whose ID is their exact email, in lowercase.
+    // Add or remove scorekeepers in the Firebase console; no need to edit these rules.
+    // Signing in alone is not enough: anyone can create an account with the public API key.
+    function isKeeper() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/keepers/$(request.auth.token.email.lower()));
+    }
+
+    // Everyone can watch; only scorekeepers can add, score, edit or delete matches.
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isKeeper();
+    }
+
+    // Everyone can see the groups; only scorekeepers can edit them.
+    match /groups/{groupId} {
+      allow read: if true;
+      allow write: if isKeeper();
+    }
+
+    // The scorekeeper list itself is managed only from the Firebase console.
+    match /keepers/{email} {
+      allow read, write: if false;
+    }
+
+    // Nothing else in the database is readable or writable.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

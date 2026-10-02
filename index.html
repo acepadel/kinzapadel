@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Live scores, schedule and group standings for the Kinza Padel Championship at Ace Padel Club, Damascus.">
+<meta name="theme-color" content="#1C4C99">
+<title>Kinza Padel Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=Noto+Kufi+Arabic:wght@700&display=swap">
+<style>html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font-size:15px}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+/* Layout: court-blue scoreboard band on top (day strip + view tabs), then one column of
+   match cards in an auto-fill grid; standings as scrollable tables; scorekeeper bottom sheet. */
+:root{
+  --bg:#EDF1F6; --surface:#FFFFFF; --ink:#0E1B2E; --muted:#5A6A80; --line:#D3DCE7;
+  --court:#1C4C99; --court-2:#163E7E; --on-court:#FFFFFF; --on-court-dim:rgba(255,255,255,.7);
+  --ball:#D3EC2A; --on-ball:#18220A; --live:#D93A27; --win:#1C8549; --soft:#E3E9F2;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ar:"Noto Kufi Arabic","Geeza Pro","Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#09111E; --surface:#101B2C; --ink:#E7EDF6; --muted:#8B99AF; --line:#22324A;
+  --court:#1A438A; --court-2:#123268; --on-court:#FFFFFF; --on-court-dim:rgba(255,255,255,.68);
+  --ball:#D3EC2A; --on-ball:#18220A; --live:#FF5C49; --win:#3CC779; --soft:#17253A; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#09111E; --surface:#101B2C; --ink:#E7EDF6; --muted:#8B99AF; --line:#22324A;
+  --court:#1A438A; --court-2:#123268; --on-court:#FFFFFF; --on-court-dim:rgba(255,255,255,.68);
+  --ball:#D3EC2A; --on-ball:#18220A; --live:#FF5C49; --win:#3CC779; --soft:#17253A; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ball);outline-offset:2px}
+
+.band{background:var(--court);color:var(--on-court);position:relative;overflow:hidden}
+.band::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(var(--on-court-dim),var(--on-court-dim)) 50% 0/2px 100% no-repeat,
+             linear-gradient(var(--on-court-dim),var(--on-court-dim)) 0 62%/100% 2px no-repeat;opacity:.14}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px}
+.top{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;padding-block:22px 14px}
+.brand h1{margin:0;font-family:var(--display);font-weight:800;font-size:clamp(30px,6vw,46px);line-height:.95;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance}
+.brand h1 span{color:var(--ball)}
+.brand .sub{margin-top:6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-court-dim)}
+.ar{font-family:var(--ar);font-size:20px;line-height:1.2;direction:rtl}
+.livecount{display:inline-flex;align-items:center;gap:8px;background:var(--court-2);border-radius:999px;padding:6px 12px;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.04em;text-transform:uppercase}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ball);flex:none}
+.dot.on{background:var(--live);box-shadow:0 0 0 0 var(--live);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 60%,transparent)}100%{box-shadow:0 0 0 9px transparent}}
+@media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
+
+.days{position:relative;display:flex;gap:6px;overflow-x:auto;padding-bottom:14px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.day{flex:none;min-width:64px;border:0;border-radius:10px;background:var(--court-2);color:var(--on-court);padding:7px 10px 6px;text-align:left}
+.day b{display:block;font-family:var(--display);font-size:20px;line-height:1;font-weight:700}
+.day small{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-court-dim)}
+.day[aria-pressed="true"]{background:var(--ball);color:var(--on-ball)}
+.day[aria-pressed="true"] small{color:var(--on-ball)}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding-block:10px}
+.seg{display:flex;gap:4px;background:var(--soft);border-radius:10px;padding:3px}
+.seg button{border:0;background:none;border-radius:8px;padding:6px 12px;font-weight:600;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.keeper-btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 12px;font-weight:600;font-size:14px}
+.keeper-btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+main.wrap{padding-block:18px 28px;display:grid;gap:26px}
+.sec h2{margin:0 0 10px;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.03em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
+.sec h2 .n{font-family:var(--body);font-size:13px;font-weight:500;color:var(--muted);letter-spacing:0;text-transform:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:12px}
+
+.m{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.m.live{border-color:var(--live);box-shadow:inset 3px 0 0 var(--live)}
+.m.keep{cursor:pointer}
+.m.keep:hover{border-color:var(--muted)}
+.mh{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.cat{font-family:var(--display);font-weight:800;font-size:14px;width:24px;height:22px;display:grid;place-items:center;border-radius:6px;background:var(--court);color:var(--on-court)}
+.pill{margin-left:auto;font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.pill.live{background:color-mix(in srgb,var(--live) 14%,transparent);color:var(--live)}
+.pill.final{background:var(--ink);color:var(--bg)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px}
+.team{min-width:0;font-weight:500;line-height:1.25}
+.team .p{display:block;overflow-wrap:anywhere}
+.row.w .team{font-weight:700}
+.row.l .team{color:var(--muted)}
+.sets{display:flex;gap:4px}
+.sets span{width:26px;text-align:center;font-family:var(--display);font-weight:700;font-size:22px;line-height:1}
+.row.l .sets span{color:var(--muted)}
+.sets span.won{color:var(--ink)}
+.pt{min-width:38px;text-align:center;font-family:var(--display);font-weight:800;font-size:20px;line-height:1;padding:5px 6px;border-radius:7px;background:var(--ball);color:var(--on-ball)}
+.pt.empty{background:none;padding:0;min-width:0}
+.wmark{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--win);margin-left:6px;vertical-align:middle}
+.mf{font-size:12px;color:var(--muted)}
+
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:22px;color:var(--muted);max-width:640px}
+.empty b{color:var(--ink)}
+
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{padding:9px 10px;text-align:right;white-space:nowrap}
+th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line)}
+td{border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th:nth-child(2),td:nth-child(2){text-align:left;white-space:normal}
+td:first-child{font-family:var(--display);font-weight:700;font-size:17px;color:var(--muted);width:32px}
+tr.top3 td:first-child{color:var(--court)}
+td.wins{font-family:var(--display);font-weight:800;font-size:18px}
+.pos{color:var(--win)} .neg{color:var(--live)}
+.note{font-size:13px;color:var(--muted);margin:8px 2px 0;max-width:70ch}
+.subh{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+
+/* scorekeeper sheet */
+.scrim{position:fixed;inset:0;background:rgba(5,10,20,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);color:var(--ink);width:100%;max-width:580px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px}
+.sheet h3{margin:0;font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;display:flex;align-items:center;gap:10px}
+.sheet h3 .x{margin-left:auto;border:0;background:var(--soft);border-radius:8px;padding:4px 10px;font-size:14px}
+.pad{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.padbtn{border:0;border-radius:12px;background:var(--court);color:var(--on-court);padding:14px 10px;display:grid;gap:6px;justify-items:center;text-align:center;min-height:120px}
+.padbtn .nm{font-size:13.5px;line-height:1.25;color:var(--on-court-dim);overflow-wrap:anywhere}
+.padbtn .big{font-family:var(--display);font-weight:800;font-size:44px;line-height:1}
+.padbtn .gs{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.04em}
+.padbtn:active{transform:scale(.98)}
+.padbtn:disabled{opacity:.45;cursor:default}
+.acts{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:600;font-size:14px}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.warn{color:var(--live);border-color:color-mix(in srgb,var(--live) 50%,var(--line))}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.form label{display:grid;gap:4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;min-width:0}
+.form .full{grid-column:1/-1}
+.form input,.form select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:15px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+details.more summary{cursor:pointer;font-weight:600;font-size:14px}
+details.more[open] summary{margin-bottom:10px}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:10px;font-size:14px;z-index:30;max-width:calc(100% - 32px)}
+@media (max-width:420px){ .form{grid-template-columns:1fr} .sets span{width:22px;font-size:20px} }
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="wrap top">
+    <div class="brand">
+      <div class="ar" lang="ar">بطولة كينزا للبادل</div>
+      <h1>Kinza Padel <span>Live</span></h1>
+      <div class="sub">Ace Padel Club · Damascus · Categories B, C, D</div>
+    </div>
+    <div class="livecount" id="livecount"><span class="dot"></span><span>Connecting</span></div>
+  </div>
+  <div class="wrap days" id="days" role="group" aria-label="Tournament day"></div>
+</div>
+
+<div class="bar">
+  <div class="wrap">
+    <div class="seg" id="views" role="group" aria-label="View">
+      <button data-view="matches" aria-pressed="true">Matches</button>
+      <button data-view="standings" aria-pressed="false">Standings</button>
+    </div>
+    <div class="seg" id="cats" role="group" aria-label="Category">
+      <button data-cat="All" aria-pressed="true">All</button>
+      <button data-cat="B" aria-pressed="false">B</button>
+      <button data-cat="C" aria-pressed="false">C</button>
+      <button data-cat="D" aria-pressed="false">D</button>
+    </div>
+    <div style="display:flex;gap:6px"><button class="keeper-btn" id="keeper" aria-pressed="false" hidden>Scorekeeper</button><button class="keeper-btn" id="signout" hidden>Sign out</button></div>
+  </div>
+</div>
+
+<main class="wrap" id="main">
+  <div class="empty"><b>Loading matches…</b><br>Scores update live as the scorekeepers enter each point.</div>
+</main>
+
+<div class="wrap" id="addRoot" style="padding-bottom:48px"></div>
+<div id="sheetRoot"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+(() => {
+  const DAY0 = new Date(2026, 8, 29); // Day 1 = Tue 29 Sep 2026
+  const DAYS = Array.from({length: 6}, (_, i) => {
+    const d = new Date(DAY0); d.setDate(d.getDate() + i);
+    return {n: i + 1, label: d.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})};
+  });
+  const todayDay = () => {
+    const n = new Date(); const t = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return Math.min(6, Math.max(1, Math.round((t - DAY0) / 864e5) + 1));
+  };
+
+  const S = {view: 'matches', day: todayDay(), cat: 'All', keeper: false, open: null};
+  let M = {};            // id -> match
+  let G = {};            // id -> group {cat, name, teams[]}
+  let db = null, auth = null, user = null, loaded = false, writeBlocked = false;
+  const chains = {};
+
+  const $ = s => document.querySelector(s);
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const toast = msg => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => t.hidden = true, 2600); };
+
+  // ---------- scoring ----------
+  // Category defaults: B one set to 9 (tie-break at 8-8); C and D one set to 6 (tie-break at 6-6).
+  // deuce: 'adv1' = one advantage, then golden point at the next 40-40; 'golden'; 'adv' = advantage every time.
+  const CAT_FMT = {B: {games: 9, tbAt: 8}, C: {games: 6, tbAt: 6}, D: {games: 6, tbAt: 6}};
+  const fmtOf = m => { const d = CAT_FMT[m.cat] || {games: 6, tbAt: 6}; const games = m.games || d.games;
+    return {bo: m.bo || 1, games, tbAt: m.tbAt || (games === 9 ? 8 : games), deuce: m.deuce || (m.golden === false ? 'adv' : m.golden === true ? 'golden' : 'adv1')}; };
+  const setsArr = m => (m.s || []).map(x => [x.a | 0, x.b | 0]);
+  const setsWon = s => s.reduce((w, x) => (x[0] > x[1] ? w[0]++ : x[1] > x[0] ? w[1]++ : 0, w), [0, 0]);
+  const deriveWinner = s => {
+    const w = setsWon(s); if (w[0] !== w[1]) return w[0] > w[1] ? 0 : 1;
+    const g = s.reduce((a, x) => [a[0] + x[0], a[1] + x[1]], [0, 0]);
+    return g[0] === g[1] ? null : (g[0] > g[1] ? 0 : 1);
+  };
+  const isTB = (m, cur) => { const f = fmtOf(m); return cur && cur[0] === f.tbAt && cur[1] === f.tbAt; };
+
+  function applyPoint(m, side) {
+    if (m.status === 'final') return null;
+    const f = fmtOf(m), o = 1 - side;
+    const s = setsArr(m); let g = m.g ? [m.g.a | 0, m.g.b | 0] : [0, 0];
+    if (!s.length) s.push([0, 0]);
+    const cur = s[s.length - 1];
+    const tb = isTB(m, cur);
+    g[side]++;
+    let gameWon = tb ? (g[side] >= 7 && g[side] - g[o] >= 2)
+                : f.deuce === 'golden' ? (g[side] >= 4 && g[side] > g[o])
+                : f.deuce === 'adv1' ? (g[side] >= 4 && (g[side] - g[o] >= 2 || (g[o] >= 4 && g[side] > g[o])))
+                : (g[side] >= 4 && g[side] - g[o] >= 2);
+    let status = 'live', winner = null;
+    if (gameWon) {
+      cur[side]++; g = [0, 0];
+      const setWon = (cur[side] >= f.games && cur[side] - cur[o] >= 2) || (cur[side] === f.tbAt + 1 && cur[o] === f.tbAt);
+      if (setWon) {
+        if (setsWon(s)[side] > Math.floor(f.bo / 2)) { status = 'final'; winner = side; }
+        else s.push([0, 0]);
+      }
+    }
+    return {s: s.map(x => ({a: x[0], b: x[1]})), g: {a: g[0], b: g[1]}, status, winner};
+  }
+  function goldenNow(m) { const f = fmtOf(m), g = m.g || {a: 0, b: 0};
+    return g.a === g.b && g.a >= 3 && (f.deuce === 'golden' || (f.deuce === 'adv1' && g.a >= 4)); }
+  function ptLabels(m) {
+    const s = setsArr(m), g = m.g || {a: 0, b: 0}, cur = s[s.length - 1];
+    if (isTB(m, cur)) return [String(g.a), String(g.b)];
+    const L = ['0', '15', '30', '40'];
+    if (g.a >= 3 && g.b >= 3) {
+      if (g.a === g.b) return ['40', '40'];
+      return g.a > g.b ? ['AD', '40'] : ['40', 'AD'];
+    }
+    return [L[Math.min(g.a, 3)], L[Math.min(g.b, 3)]];
+  }
+
+  // ---------- helpers ----------
+  const time12 = t => { if (!t) return ''; let [h, mi] = t.split(':').map(Number); h = h % 24; return `${((h + 11) % 12) + 1}:${String(mi).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+  const sorted = list => list.sort((a, b) => (a.day - b.day) || String(a.time).localeCompare(String(b.time)) || String(a.court).localeCompare(String(b.court)) || String(a.cat).localeCompare(String(b.cat)));
+  const inCat = m => S.cat === 'All' || m.cat === S.cat;
+  const players = t => String(t || '').split('+').map(p => p.trim()).filter(Boolean);
+  const ago = t => { if (!t) return ''; const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)}m ago` : `${Math.floor(s / 3600)}h ago`; };
+
+  // ---------- render ----------
+  function renderDays() {
+    $('#days').innerHTML = DAYS.map(d => {
+      const n = Object.values(M).filter(m => m.day === d.n && m.status === 'live').length;
+      return `<button class="day" data-day="${d.n}" aria-pressed="${S.day === d.n}"><b>Day ${d.n}${n ? ' •' : ''}</b><small>${esc(d.label)}</small></button>`;
+    }).join('');
+  }
+  function renderLiveCount() {
+    const n = Object.values(M).filter(m => m.status === 'live').length;
+    $('#livecount').innerHTML = !db && loaded ? `<span class="dot"></span><span>Offline</span>`
+      : n ? `<span class="dot on"></span><span>${n} live now</span>` : `<span class="dot"></span><span>${loaded ? 'No match live' : 'Connecting'}</span>`;
+  }
+
+  function card(m) {
+    const s = setsArr(m), live = m.status === 'live', fin = m.status === 'final';
+    const pts = live ? ptLabels(m) : null;
+    const row = side => {
+      const cls = fin && m.winner != null ? (m.winner === side ? 'w' : 'l') : '';
+      const ps = players(side ? m.t2 : m.t1);
+      return `<div class="row ${cls}">
+        <div class="team">${ps.map((p, i) => `<span class="p">${esc(p)}${i === ps.length - 1 && cls === 'w' ? '<i class="wmark" title="Winner"></i>' : ''}</span>`).join('')}</div>
+        <div class="sets">${s.length ? s.map(x => `<span class="${x[side] > x[1 - side] ? 'won' : ''}">${x[side]}</span>`).join('') : '<span>–</span>'}</div>
+        <div class="pt ${live ? '' : 'empty'}">${live ? esc(pts[side]) : ''}</div>
+      </div>`;
+    };
+    const pill = live ? `<span class="pill live"><span class="dot on"></span>Live</span>` : fin ? `<span class="pill final">Final</span>` : `<span class="pill">${esc(time12(m.time))}</span>`;
+    const where = [m.court ? esc(m.court) : '', live || fin ? esc(time12(m.time)) : '', groupOf(m) ? 'Group ' + esc(groupOf(m)) : ''].filter(Boolean).join(' · ');
+    return `<article class="m ${live ? 'live' : ''} ${S.keeper ? 'keep' : ''}" data-id="${esc(m.id)}" ${S.keeper ? 'tabindex="0" role="button"' : ''}>
+      <div class="mh"><span class="cat">${esc(m.cat)}</span><span>${where || 'Day ' + m.day}</span>${pill}</div>
+      ${row(0)}${row(1)}
+      ${live && m.t ? `<div class="mf" data-ago="${m.t}">Updated ${ago(m.t)}</div>` : ''}
+    </article>`;
+  }
+
+  function renderMatches() {
+    const all = sorted(Object.values(M));
+    const live = all.filter(m => m.status === 'live' && inCat(m));
+    const day = all.filter(m => m.day === S.day && inCat(m) && m.status !== 'live');
+    let h = '';
+    if (live.length) h += `<section class="sec"><h2><span class="dot on"></span>Live now <span class="n">${live.length} match${live.length > 1 ? 'es' : ''}</span></h2><div class="grid">${live.map(card).join('')}</div></section>`;
+    const groups = {};
+    day.forEach(m => { const k = m.cat; (groups[k] = groups[k] || []).push(m); });
+    const cats = Object.keys(groups).sort();
+    if (!cats.length && !live.length) {
+      h += `<div class="empty"><b>No matches for Day ${S.day}${S.cat !== 'All' ? ', Category ' + S.cat : ''} yet.</b><br>${S.keeper ? 'Add them with the form below.' : 'The schedule appears here as soon as the organizers post it.'}</div>`;
+    }
+    cats.forEach(c => {
+      const ms = groups[c]; const done = ms.filter(m => m.status === 'final').length;
+      h += `<section class="sec"><h2>Category ${esc(c)} <span class="n">Day ${S.day} · ${done} of ${ms.length} played</span></h2><div class="grid">${ms.map(card).join('')}</div></section>`;
+    });
+    return h;
+  }
+
+  // Names are spelled differently across posters (Kareem/Karim, Saman/Samman, Aghiad/Aghyad),
+  // so each player is reduced to a consonant skeleton before comparing.
+  const pkey = p => String(p).toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(w => w && w !== 'al' && w !== 'el')
+    .map(w => w.replace(/^al(?=.{3})/, '')).join('').replace(/y/g, 'i').replace(/[aeiou]/g, '').replace(/(.)\1+/g, '$1').replace(/h$/, '');
+  const xkey = p => String(p).toLowerCase().replace(/[^a-z]/g, '');
+  const tplayers = t => String(t || '').split('+').map(p => p.trim()).filter(Boolean);
+  const tkey = t => tplayers(t).map(pkey).sort().join('+');
+  const isPlaceholder = t => /^e\s*\d+$/i.test(String(t).trim());
+  const phKey = t => 'ph:' + String(t).replace(/\s+/g, '').toUpperCase();
+  let resolveCache = {key: null, map: {}};
+  function resolveTeam(cat, t) {
+    const gkey = JSON.stringify(G);
+    if (resolveCache.key !== gkey) resolveCache = {key: gkey, map: {}};
+    const ck = cat + '|' + t; if (ck in resolveCache.map) return resolveCache.map[ck];
+    const entries = [];
+    Object.values(G).filter(g => g.cat === cat).forEach(g => (g.teams || []).forEach(n => { if (!isPlaceholder(n)) entries.push({group: String(g.name), name: n, key: tkey(n), ps: tplayers(n).map(pkey), ex: tplayers(n).map(xkey)}); }));
+    const k = tkey(t), ps = tplayers(t).map(pkey), ex = tplayers(t).map(xkey);
+    let hit = entries.find(e => e.key === k) || null;
+    if (!hit) { const c = entries.filter(e => e.ex.some(p => ex.includes(p))); if (c.length === 1) hit = c[0]; }
+    if (!hit) { const c = entries.filter(e => e.ps.some(p => ps.includes(p))); if (c.length === 1) hit = c[0]; }
+    return resolveCache.map[ck] = hit;
+  }
+  function groupOf(m) {
+    if (m.group) return String(m.group);
+    const a = resolveTeam(m.cat, m.t1), b = resolveTeam(m.cat, m.t2);
+    if (a && b && a.group !== b.group) return '';
+    return (a || b || {}).group || '';
+  }
+
+  function standings() {
+    const catsWithGroups = new Set(Object.values(G).map(g => g.cat));
+    const tables = {};
+    const blank = name => ({name, P: 0, W: 0, L: 0, SW: 0, SL: 0, GW: 0, GL: 0, listed: false});
+    const table = (cat, group) => tables[cat + '|' + group] = tables[cat + '|' + group] || {cat, group, teams: {}};
+    const teamRow = (T, cat, t) => { const r = isPlaceholder(t) ? null : resolveTeam(cat, t); const k = isPlaceholder(t) ? phKey(t) : r ? tkey(r.name) : tkey(t);
+      return T.teams[k] = T.teams[k] || blank(r ? r.name : String(t).trim()); };
+    Object.values(G).filter(g => S.cat === 'All' || g.cat === S.cat).forEach(g => {
+      const T = table(g.cat, String(g.name));
+      (g.teams || []).forEach(t => { const k = isPlaceholder(t) ? phKey(t) : tkey(t); T.teams[k] = T.teams[k] || blank(t); T.teams[k].listed = true; T.teams[k].ph = isPlaceholder(t); });
+    });
+    const finals = Object.values(M).filter(m => m.status === 'final' && inCat(m));
+    Object.values(M).filter(inCat).forEach(m => {
+      const grp = groupOf(m);
+      if (catsWithGroups.has(m.cat) && !grp) return; // knockout matches stay out of group tables
+      const T = table(m.cat, grp); teamRow(T, m.cat, m.t1); teamRow(T, m.cat, m.t2);
+    });
+    finals.forEach(m => {
+      const grp = groupOf(m); if (catsWithGroups.has(m.cat) && !grp) return;
+      const T = tables[m.cat + '|' + grp]; if (!T) return;
+      const s = setsArr(m), a = teamRow(T, m.cat, m.t1), b = teamRow(T, m.cat, m.t2);
+      const sw = setsWon(s), g = s.reduce((x, y) => [x[0] + y[0], x[1] + y[1]], [0, 0]);
+      const w = m.winner ?? deriveWinner(s);
+      a.P++; b.P++;
+      if (w === 0) { a.W++; b.L++; } else if (w === 1) { b.W++; a.L++; }
+      a.SW += sw[0]; a.SL += sw[1]; b.SW += sw[1]; b.SL += sw[0];
+      a.GW += g[0]; a.GL += g[1]; b.GW += g[1]; b.GL += g[0];
+    });
+    const keys = Object.keys(tables).sort((x, y) => x.localeCompare(y, undefined, {numeric: true}));
+    if (!keys.length) return `<div class="empty"><b>No standings yet.</b><br>Tables fill in as matches are marked final.</div>`;
+    let h = '', lastCat = null;
+    keys.forEach(k => {
+      const T = tables[k];
+      let list = Object.values(T.teams);
+      const extras = list.some(r => !r.listed);
+      if (extras) list = list.filter(r => !r.ph); // a placeholder slot (E 1) is replaced by the team that actually played
+      const rows = list.sort((x, y) => (y.W - x.W) || ((y.SW - y.SL) - (x.SW - x.SL)) || ((y.GW - y.GL) - (x.GW - x.GL)) || (y.GW - x.GW) || (x.ph - y.ph) || x.name.localeCompare(y.name));
+      if (T.cat !== lastCat) { if (lastCat !== null) h += '</section>'; h += `<section class="sec"><h2>Category ${esc(T.cat)} <span class="n">${finals.filter(m => m.cat === T.cat).length} results</span></h2>`; lastCat = T.cat; }
+      if (T.group) h += `<div class="subh">Group ${esc(T.group)}${S.keeper ? ` <button class="btn" style="font-family:var(--body);letter-spacing:0;text-transform:none;padding:3px 10px;font-size:13px" data-gedit="${esc(T.cat + '|' + T.group)}">Edit group</button>` : ''}</div>`;
+      h += `<div class="tbl"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Sets</th><th>Games</th><th>±</th></tr></thead><tbody>${rows.map((r, i) => {
+        const d = r.GW - r.GL;
+        return `<tr class="${i < 2 && r.P ? 'top3' : ''}"><td>${i + 1}</td><td>${esc(r.name)}${r.ph ? ' <span class="mf">to be confirmed</span>' : ''}</td><td>${r.P}</td><td class="wins">${r.W}</td><td>${r.L}</td><td>${r.SW}–${r.SL}</td><td>${r.GW}–${r.GL}</td><td class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${d > 0 ? '+' : ''}${d}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+    });
+    h += '</section>';
+    if (S.keeper) h += `<div class="acts"><button class="btn pri" data-gedit="new">Add a group</button></div>`;
+    h += `<p class="note">Group stage. Ranked by wins, then set difference, then game difference. Only matches marked Final count.</p>`;
+    return h;
+  }
+
+  function render() {
+    renderDays(); renderLiveCount();
+    document.querySelectorAll('#views button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === S.view));
+    document.querySelectorAll('#cats button').forEach(b => b.setAttribute('aria-pressed', b.dataset.cat === S.cat));
+    $('#days').hidden = S.view !== 'matches';
+    const kb = $('#keeper'); kb.hidden = !db; kb.textContent = user ? 'Scorekeeper' : 'Scorekeeper sign in'; kb.setAttribute('aria-pressed', S.keeper); $('#signout').hidden = !user;
+    if (!loaded) return;
+    if (!db) {
+      $('#main').innerHTML = `<div class="empty"><b>Live scores could not load.</b><br>Check your internet connection and reload the page.</div>`;
+      return;
+    }
+    $('#main').innerHTML = S.view === 'matches' ? renderMatches() : standings();
+    const addKey = S.keeper && S.view === 'matches' ? 'on' + S.day : '';
+    if (addKey !== render.addKey) { render.addKey = addKey; $('#addRoot').innerHTML = addKey ? addForm() : ''; }
+    if (S.open) renderPad();
+  }
+
+  // ---------- scorekeeper ----------
+  function addForm() {
+    return `<section class="sec"><h2>Add a match</h2><form id="addf" class="form" style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px">
+      <label>Day<select id="a-day">${DAYS.map(d => `<option value="${d.n}" ${d.n === S.day ? 'selected' : ''}>Day ${d.n} · ${esc(d.label)}</option>`).join('')}</select></label>
+      <label>Category<select id="a-cat"><option>B</option><option>C</option><option>D</option></select></label>
+      <label>Time<input id="a-time" type="time" required></label>
+      <label>Court<input id="a-court" placeholder="Court 1"></label>
+      <label class="full">Team 1<input id="a-t1" required placeholder="Player + Player"></label>
+      <label class="full">Team 2<input id="a-t2" required placeholder="Player + Player"></label>
+      <label>Group (optional)<input id="a-group" placeholder="A"></label>
+      <label>&nbsp;<button class="btn pri" type="submit">Add match</button></label>
+    </form></section>`;
+  }
+
+  function openSheet(id) {
+    const m = M[id]; if (!m) return; S.open = id;
+    const f = fmtOf(m);
+    $('#sheetRoot').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Score this match">
+      <h3><span class="cat">${esc(m.cat)}</span>Score match<button class="x" data-act="close">Close</button></h3>
+      <div id="padArea"></div>
+      <details class="more"><summary>Edit match details</summary>
+        <form id="editf" class="form">
+          <label class="full">Team 1<input id="e-t1" value="${esc(m.t1)}"></label>
+          <label class="full">Team 2<input id="e-t2" value="${esc(m.t2)}"></label>
+          <label class="full">Set scores (Team 1 first)<input id="e-sets" value="${esc(setsArr(m).map(x => x.join('-')).join(', '))}" placeholder="6-4, 3-6, 10-8"></label>
+          <label>Status<select id="e-status"><option value="scheduled">Upcoming</option><option value="live">Live</option><option value="final">Final</option></select></label>
+          <label>Time<input id="e-time" type="time" value="${esc(m.time)}"></label>
+          <label>Court<input id="e-court" value="${esc(m.court)}"></label>
+          <label>Group<input id="e-group" value="${esc(m.group)}"></label>
+          <label>Day<select id="e-day">${DAYS.map(d => `<option value="${d.n}" ${d.n === m.day ? 'selected' : ''}>Day ${d.n}</option>`).join('')}</select></label>
+          <label>Category<select id="e-cat">${['B','C','D'].map(c => `<option ${c === m.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+          <label>Format<select id="e-bo"><option value="1">1 set</option><option value="3">Best of 3 sets</option></select></label>
+          <label>Games per set<input id="e-games" type="number" min="1" max="12" value="${f.games}"></label>
+          <label>Tie-break at<input id="e-tb" type="number" min="1" max="12" value="${f.tbAt}"></label>
+          <label>At 40–40<select id="e-deuce"><option value="adv1">One advantage, then golden point</option><option value="golden">Golden point</option><option value="adv">Advantage every time</option></select></label>
+          <div class="acts full"><button class="btn pri" type="submit">Save details</button><button class="btn warn" type="button" data-act="del">Delete match</button></div>
+          <p class="hint full" id="delConfirm" hidden>Delete this match for everyone? <button class="btn warn" type="button" data-act="del2">Yes, delete</button></p>
+        </form>
+      </details>
+    </div></div>`;
+    $('#e-status').value = m.status || 'scheduled';
+    $('#e-bo').value = String(f.bo); $('#e-deuce').value = f.deuce;
+    renderPad();
+  }
+  function renderPad() {
+    const m = M[S.open]; const area = $('#padArea'); if (!area) return;
+    if (!m) { closeSheet(); return; }
+    const s = setsArr(m), cur = s[s.length - 1] || [0, 0], pts = m.status === 'live' ? ptLabels(m) : ['0', '0'];
+    const fin = m.status === 'final';
+    const btn = side => `<button class="padbtn" data-act="pt" data-side="${side}" ${fin ? 'disabled' : ''}>
+        <span class="nm">${esc(side ? m.t2 : m.t1)}</span><span class="big">${esc(pts[side])}</span>
+        <span class="gs">Games ${cur[side]}${fmtOf(m).bo > 1 ? ' · Sets ' + setsWon(fin ? s : s.slice(0, -1))[side] : ''}</span></button>`;
+    area.innerHTML = `<div class="pad">${btn(0)}${btn(1)}</div>
+      <p class="hint" style="margin-top:8px">${fin ? 'Match is final.' : 'Tap a team each time it wins a point. Games and sets move on automatically.'} ${isTB(m, cur) && !fin ? '<b>Tie-break.</b>' : ''}${!fin && !isTB(m, cur) && m.status === 'live' && goldenNow(m) ? '<b>Golden point: next point wins the game.</b>' : ''}</p>
+      <div class="acts" style="margin-top:10px">
+        <button class="btn" data-act="undo" ${(m.hist || []).length ? '' : 'disabled'}>Undo last point</button>
+        ${m.status !== 'live' && !fin ? '<button class="btn" data-act="start">Mark live</button>' : ''}
+        ${!fin ? '<button class="btn" data-act="finish">Mark final</button>' : '<button class="btn" data-act="reopen">Reopen</button>'}
+      </div>`;
+  }
+  const groupId = (cat, name) => Object.keys(G).find(id => G[id].cat === cat && String(G[id].name) === String(name));
+  function openGroup(key) {
+    S.open = null;
+    const [cat, name] = key === 'new' ? [S.cat === 'All' ? 'B' : S.cat, ''] : key.split('|');
+    const id = key === 'new' ? null : groupId(cat, name);
+    const g = id ? G[id] : {cat, name, teams: []};
+    S.gopen = id;
+    $('#sheetRoot').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Edit group">
+      <h3>${id ? 'Edit group' : 'Add a group'}<button class="x" data-act="close">Close</button></h3>
+      <form id="groupf" class="form">
+        <label>Category<select id="g-cat">${['B','C','D'].map(c => `<option ${c === g.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <label>Group name<input id="g-name" value="${esc(g.name)}" placeholder="A" required></label>
+        <label class="full">Teams, one per line<textarea id="g-teams" rows="6" style="width:100%;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font:inherit;color:var(--ink);text-transform:none;letter-spacing:0">${esc((g.teams || []).join('\n'))}</textarea></label>
+        <p class="hint full">Write each team as "Player + Player". Use a name like "E 1" for a slot that isn't decided yet. Matches find their group from the team names.</p>
+        <div class="acts full"><button class="btn pri" type="submit">Save group</button>${id ? '<button class="btn warn" type="button" data-act="gdel">Delete group</button>' : ''}</div>
+        <p class="hint full" id="gdelConfirm" hidden>Delete this group for everyone? Its matches stay in the schedule. <button class="btn warn" type="button" data-act="gdel2">Yes, delete</button></p>
+      </form></div></div>`;
+  }
+  const failToast = err => toast(err && err.code === 'permission-denied' ? 'This account is not on the scorekeeper list. Ask the organizer to add it.' : 'Could not save that change. Check the connection and try again.');
+  function openLogin() {
+    S.open = null;
+    $('#sheetRoot').innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="Scorekeeper sign in">
+      <h3>Scorekeeper sign in<button class="x" data-act="close">Close</button></h3>
+      <p class="hint">Only scorekeepers need to sign in. Everyone else can watch without an account.</p>
+      <form id="loginf" class="form">
+        <label class="full">Email<input id="l-email" type="email" autocomplete="username" required></label>
+        <label class="full">Password<input id="l-pass" type="password" autocomplete="current-password" required></label>
+        <div class="acts full"><button class="btn pri" type="submit">Sign in</button></div>
+      </form></div></div>`;
+    $('#l-email').focus();
+  }
+  function closeSheet() { S.open = null; S.gopen = null; $('#sheetRoot').innerHTML = ''; }
+
+  function write(id, patch, isSet) {
+    M[id] = {...(isSet ? {} : M[id]), ...patch, id};
+    render();
+    const ref = db.collection('matches').doc(id);
+    const body = {...patch}; delete body.id;
+    chains[id] = (chains[id] || Promise.resolve()).then(() => isSet ? ref.set(body) : ref.update(body)).catch(e => {
+      const code = e && e.code;
+      if (code === 'permission-denied') { writeBlocked = true; S.keeper = false; closeSheet(); toast('This account is not on the scorekeeper list. Ask the organizer to add it.'); render(); }
+      else if (code === 'unauthenticated') { toast('Sign in again to keep score.'); }
+      else toast('Could not save that change. Check the connection and try again.');
+    });
+    return chains[id];
+  }
+  const snap = m => JSON.stringify({s: m.s || [], g: m.g || {a: 0, b: 0}, status: m.status || 'scheduled', winner: m.winner ?? null});
+  const pushHist = m => [...(m.hist || []), snap(m)].slice(-25);
+
+  function parseSets(txt) {
+    return String(txt).split(/[,;\s]+/).filter(Boolean).map(p => p.split(/[-:]/).map(n => parseInt(n, 10))).filter(p => p.length === 2 && p.every(n => n >= 0)).map(p => ({a: p[0], b: p[1]}));
+  }
+
+  // ---------- events ----------
+  document.addEventListener('click', e => {
+    const t = e.target.closest('button,[data-id]'); if (!t) return;
+    if (t.dataset.day) { S.day = +t.dataset.day; render(); return; }
+    if (t.dataset.view) { S.view = t.dataset.view; render(); return; }
+    if (t.dataset.cat) { S.cat = t.dataset.cat; render(); return; }
+    if (t.id === 'keeper') { if (!user) openLogin(); else { S.keeper = !S.keeper; render(); } return; }
+    if (t.id === 'signout') { auth.signOut(); return; }
+    const act = t.dataset.act;
+    if (!act && t.dataset.id && S.keeper && !t.closest('.sheet')) { openSheet(t.dataset.id); return; }
+    if (t.dataset.gedit) { openGroup(t.dataset.gedit); return; }
+    if (act === 'close') return closeSheet();
+    if (act === 'gdel') { $('#gdelConfirm').hidden = false; return; }
+    if (act === 'gdel2') { const id = S.gopen; closeSheet(); db.collection('groups').doc(id).delete().then(() => toast('Group deleted.')).catch(failToast); return; }
+    const m = M[S.open];
+    if (!m) return;
+    if (act === 'pt') { const r = applyPoint(m, +t.dataset.side); if (r) { write(m.id, {...r, hist: pushHist(m), t: Date.now()}); if (r.status === 'final') toast('Match final.'); } }
+    if (act === 'undo') { const h = [...(m.hist || [])]; const last = h.pop(); if (last) write(m.id, {...JSON.parse(last), hist: h, t: Date.now()}); }
+    if (act === 'start') write(m.id, {status: 'live', hist: pushHist(m), t: Date.now()});
+    if (act === 'finish') { const s = setsArr(m); write(m.id, {status: 'final', winner: deriveWinner(s), g: {a: 0, b: 0}, hist: pushHist(m), t: Date.now()}); }
+    if (act === 'reopen') write(m.id, {status: 'live', winner: null, hist: pushHist(m), t: Date.now()});
+    if (act === 'del') $('#delConfirm').hidden = false;
+    if (act === 'del2') { const id = m.id; closeSheet(); delete M[id]; render(); db.collection('matches').doc(id).delete().then(() => toast('Match deleted.')).catch(() => toast('Could not delete that match.')); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && S.open) closeSheet();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.m.keep')) { e.preventDefault(); openSheet(e.target.dataset.id); }
+  });
+  document.addEventListener('mousedown', e => { if (e.target.id === 'scrim') closeSheet(); });
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.id === 'groupf') {
+      const cat = $('#g-cat').value, name = $('#g-name').value.trim().toUpperCase();
+      const teams = $('#g-teams').value.split('\n').map(x => x.trim().replace(/\s+/g, ' ')).filter(Boolean);
+      if (!name) return toast('Give the group a name.');
+      const newId = (cat + '-' + name).replace(/[^A-Za-z0-9_-]/g, '_');
+      const clash = groupId(cat, name);
+      if (clash && clash !== S.gopen) return toast(`Category ${cat} already has a Group ${name}.`);
+      const oldId = S.gopen;
+      const ops = db.batch();
+      ops.set(db.collection('groups').doc(newId), {cat, name, teams});
+      if (oldId && oldId !== newId) ops.delete(db.collection('groups').doc(oldId));
+      closeSheet();
+      ops.commit().then(() => toast('Group saved.')).catch(failToast);
+      return;
+    }
+    if (e.target.id === 'loginf') {
+      const btn = e.target.querySelector('button[type=submit]'); btn.disabled = true;
+      auth.signInWithEmailAndPassword($('#l-email').value.trim(), $('#l-pass').value)
+        .then(() => { closeSheet(); S.keeper = true; writeBlocked = false; render(); toast('Signed in. Tap a match to keep score.'); })
+        .catch(err => { btn.disabled = false; toast(/password|credential|user-not-found/.test(err.code || '') ? 'Wrong email or password.' : err.code === 'auth/too-many-requests' ? 'Too many tries. Wait a minute and try again.' : 'Sign in failed. Check the connection.'); });
+      return;
+    }
+    if (e.target.id === 'addf') {
+      const v = id => $('#' + id).value.trim();
+      if (!v('a-t1') || !v('a-t2') || !v('a-time')) return toast('Fill in both teams and the time.');
+      const day = +v('a-day'), cat = v('a-cat');
+      const id = `d${day}-${cat}-${Date.now().toString(36)}`;
+      const doc = {day, cat, court: v('a-court'), time: v('a-time'), t1: v('a-t1'), t2: v('a-t2'), group: v('a-group'), bo: 1, games: CAT_FMT[cat].games, tbAt: CAT_FMT[cat].tbAt, deuce: 'adv1', status: 'scheduled', s: [], g: {a: 0, b: 0}, winner: null, hist: [], t: 0};
+      ['a-time','a-court','a-t1','a-t2'].forEach(i => $('#' + i).value = '');
+      S.day = day;
+      write(id, doc, true).then(() => toast('Match added.'));
+    }
+    if (e.target.id === 'editf') {
+      const m = M[S.open]; if (!m) return;
+      const v = id => $('#' + id).value.trim();
+      const s = parseSets(v('e-sets')); const status = v('e-status');
+      const patch = {t1: v('e-t1'), t2: v('e-t2'), time: v('e-time') || m.time, court: v('e-court'), group: v('e-group'), day: +v('e-day'), cat: v('e-cat'),
+        bo: +v('e-bo'), games: Math.max(1, +v('e-games') || 6), tbAt: Math.max(1, +v('e-tb') || 6), deuce: v('e-deuce'), s, status,
+        winner: status === 'final' ? deriveWinner(s.map(x => [x.a, x.b])) : null, hist: pushHist(m), t: Date.now()};
+      if (status !== 'live') patch.g = {a: 0, b: 0};
+      write(m.id, patch).then(() => toast('Saved.'));
+      closeSheet();
+    }
+  });
+
+  // tick "updated Xs ago" labels without re-rendering
+  setInterval(() => document.querySelectorAll('[data-ago]').forEach(el => el.textContent = 'Updated ' + ago(+el.dataset.ago)), 1000);
+
+  // ---------- boot ----------
+  render();
+  try {
+    firebase.initializeApp({
+    apiKey: "AIzaSyBkOtB6I3D4HajXkx4XNj7Dbsz_kliCEqQ",
+    authDomain: "padeltournament-ed489.firebaseapp.com",
+    projectId: "padeltournament-ed489",
+    storageBucket: "padeltournament-ed489.firebasestorage.app",
+    messagingSenderId: "663039407255",
+    appId: "1:663039407255:web:f99230f8969a25582025d2"
+  });
+    db = firebase.firestore(); auth = firebase.auth();
+  } catch (err) { db = null; loaded = true; render(); }
+  if (db) {
+    auth.onAuthStateChanged(u => { user = u; if (!u) S.keeper = false; writeBlocked = false; render(); });
+    db.collection('groups').onSnapshot(q => {
+      const next = {}; q.docs.forEach(d => { next[d.id] = d.data(); }); G = next; if (loaded) render();
+    }, () => {});
+    db.collection('matches').onSnapshot(q => {
+      const next = {};
+      q.docs.forEach(d => { next[d.id] = {...d.data(), id: d.id}; });
+      M = next; loaded = true; render();
+    }, () => { loaded = true; toast('Live connection lost. Reload the page to reconnect.'); render(); });
+  }
+})();
+</script>
+</body>
+</html>
