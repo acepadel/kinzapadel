@@ -1,4 +1,4 @@
-# Kinza Padel Live (Firebase)
+# Kinza Padel Live (Firebase) 
 
 Live scores, schedule and group standings for the Kinza Padel Championship at Ace Padel Club, Damascus.
 Firebase project: `padeltournament-ed489`.
