@@ -2,7 +2,7 @@
 // Live scores never come from this cache: Firestore traffic goes straight to the network
 // (and the page keeps its own offline copy of the last scores it saw).
 // Bump VERSION whenever you upload new files, so phones drop the old copies.
-const VERSION = 'kinza-v2';
+const VERSION = 'kinza-v3';
 const SHELL = [
   './',
   './index.html',

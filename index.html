@@ -106,6 +106,14 @@ main.wrap{padding-block:18px 28px;display:grid;gap:26px}
 .pt.empty{display:none}
 .wmark{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--win);margin-left:6px;vertical-align:middle}
 .mf{font-size:12px;color:var(--muted)}
+.stg{color:var(--court);font-weight:700}
+.ko{display:grid;gap:8px}
+.kor{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;font-size:14px}
+.kor .tn{min-width:0;overflow-wrap:anywhere}
+.kor .tn.w{font-weight:700}
+.kor .tn.l{color:var(--muted)}
+.kor .sc{font-family:var(--display);font-weight:700;font-size:18px;text-align:right}
+.kor .meta{grid-column:1/-1;font-size:12px;color:var(--muted)}
 
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:22px;color:var(--muted);max-width:640px}
 .empty b{color:var(--ink)}
@@ -223,13 +231,16 @@ details.more[open] summary{margin-bottom:10px}
 <script>
 (() => {
   const DAY0 = new Date(2026, 8, 29); // Day 1 = Tue 29 Sep 2026
-  const DAYS = Array.from({length: 6}, (_, i) => {
-    const d = new Date(DAY0); d.setDate(d.getDate() + i);
-    return {n: i + 1, label: d.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})};
-  });
+  const dayInfo = i => { const d = new Date(DAY0); d.setDate(d.getDate() + i); return {n: i + 1, label: d.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'})}; };
+  const DAYS = Array.from({length: 7}, (_, i) => dayInfo(i)); // tournament extended to 7 days
+  const growDays = () => { const max = Math.max(0, ...Object.values(M).map(m => +m.day || 0)); while (DAYS.length < max) DAYS.push(dayInfo(DAYS.length)); };
+  // Knockout rounds. A match with a stage never counts in the group tables.
+  const STAGES = [['R16', 'Round of 16'], ['QF', 'Quarter-final'], ['SF', 'Semi-final'], ['3P', 'Third place'], ['F', 'Final']];
+  const stageName = k => (STAGES.find(x => x[0] === k) || [])[1] || '';
+  const stageOpts = cur => `<option value="">Group stage</option>` + STAGES.map(([k, n]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${n}</option>`).join('');
   const todayDay = () => {
     const n = new Date(); const t = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-    return Math.min(6, Math.max(1, Math.round((t - DAY0) / 864e5) + 1));
+    return Math.min(DAYS.length, Math.max(1, Math.round((t - DAY0) / 864e5) + 1));
   };
 
   const S = {view: 'matches', day: todayDay(), cat: 'All', keeper: false, open: null};
@@ -307,6 +318,7 @@ details.more[open] summary{margin-bottom:10px}
 
   // ---------- render ----------
   function renderDays() {
+    growDays();
     $('#days').innerHTML = DAYS.map(d => {
       const n = Object.values(M).filter(m => m.day === d.n && m.status === 'live').length;
       return `<button class="day" data-day="${d.n}" aria-pressed="${S.day === d.n}"><b>Day ${d.n}${n ? ' •' : ''}</b><small>${esc(d.label)}</small></button>`;
@@ -336,7 +348,7 @@ details.more[open] summary{margin-bottom:10px}
       </div>`;
     };
     const pill = live ? `<span class="pill live"><span class="dot on"></span>Live</span>` : fin ? `<span class="pill final">Final</span>` : `<span class="pill">${esc(time12(m.time))}</span>`;
-    const where = [m.court ? esc(m.court) : '', live || fin ? esc(time12(m.time)) : '', groupOf(m) ? 'Group ' + esc(groupOf(m)) : ''].filter(Boolean).join(' · ');
+    const where = [m.court ? esc(m.court) : '', live || fin ? esc(time12(m.time)) : '', m.stage ? `<b class="stg">${esc(stageName(m.stage))}</b>` : groupOf(m) ? 'Group ' + esc(groupOf(m)) : ''].filter(Boolean).join(' · ');
     return `<article class="m ${live ? 'live' : ''} ${S.keeper ? 'keep' : ''}" data-id="${esc(m.id)}" ${S.keeper ? 'tabindex="0" role="button"' : ''}>
       <div class="mh"><span class="cat">${esc(m.cat)}</span><span>${where || 'Day ' + m.day}</span>${pill}</div>
       ${row(0)}${row(1)}
@@ -386,12 +398,29 @@ details.more[open] summary{margin-bottom:10px}
     return resolveCache.map[ck] = hit;
   }
   function groupOf(m) {
+    if (m.stage) return '';
     if (m.group) return String(m.group);
     const a = resolveTeam(m.cat, m.t1), b = resolveTeam(m.cat, m.t2);
     if (a && b && a.group !== b.group) return '';
     return (a || b || {}).group || '';
   }
 
+  function knockout(cat) {
+    const ms = Object.values(M).filter(m => m.cat === cat && m.stage);
+    if (!ms.length) return '';
+    let h = '';
+    [...STAGES].reverse().forEach(([k, name]) => {
+      const rs = sorted(ms.filter(m => m.stage === k)); if (!rs.length) return;
+      h += `<div class="subh">${esc(name)}${rs.length > 1 ? 's' : ''}</div><div class="ko">` + rs.map(m => {
+        const s = setsArr(m), fin = m.status === 'final', w = fin ? (m.winner ?? deriveWinner(s)) : null;
+        const sc = side => s.length ? s.map(x => x[side]).join(' ') : '';
+        const cls = side => w == null ? '' : w === side ? 'w' : 'l';
+        const meta = m.status === 'live' ? '<span class="stg" style="color:var(--live)">Live now</span>' : fin ? 'Final' : `Day ${m.day} · ${esc(time12(m.time))}${m.court ? ' · ' + esc(m.court) : ''}`;
+        return `<div class="kor"><span class="tn ${cls(0)}">${esc(m.t1)}</span><span class="sc">${sc(0)}</span><span class="tn ${cls(1)}">${esc(m.t2)}</span><span class="sc">${sc(1)}</span><span class="meta">${meta}</span></div>`;
+      }).join('') + `</div>`;
+    });
+    return h + `<div class="subh">Group stage</div>`;
+  }
   function standings() {
     const catsWithGroups = new Set(Object.values(G).map(g => g.cat));
     const tables = {};
@@ -406,11 +435,11 @@ details.more[open] summary{margin-bottom:10px}
     const finals = Object.values(M).filter(m => m.status === 'final' && inCat(m));
     Object.values(M).filter(inCat).forEach(m => {
       const grp = groupOf(m);
-      if (catsWithGroups.has(m.cat) && !grp) return; // knockout matches stay out of group tables
+      if (m.stage || (catsWithGroups.has(m.cat) && !grp)) return; // knockout matches stay out of group tables
       const T = table(m.cat, grp); teamRow(T, m.cat, m.t1); teamRow(T, m.cat, m.t2);
     });
     finals.forEach(m => {
-      const grp = groupOf(m); if (catsWithGroups.has(m.cat) && !grp) return;
+      const grp = groupOf(m); if (m.stage || (catsWithGroups.has(m.cat) && !grp)) return;
       const T = tables[m.cat + '|' + grp]; if (!T) return;
       const s = setsArr(m), a = teamRow(T, m.cat, m.t1), b = teamRow(T, m.cat, m.t2);
       const sw = setsWon(s), g = s.reduce((x, y) => [x[0] + y[0], x[1] + y[1]], [0, 0]);
@@ -429,7 +458,7 @@ details.more[open] summary{margin-bottom:10px}
       const extras = list.some(r => !r.listed);
       if (extras) list = list.filter(r => !r.ph); // a placeholder slot (E 1) is replaced by the team that actually played
       const rows = list.sort((x, y) => (y.W - x.W) || ((y.SW - y.SL) - (x.SW - x.SL)) || ((y.GW - y.GL) - (x.GW - x.GL)) || (y.GW - x.GW) || (x.ph - y.ph) || x.name.localeCompare(y.name));
-      if (T.cat !== lastCat) { if (lastCat !== null) h += '</section>'; h += `<section class="sec"><h2>Category ${esc(T.cat)} <span class="n">${finals.filter(m => m.cat === T.cat).length} results</span></h2>`; lastCat = T.cat; }
+      if (T.cat !== lastCat) { if (lastCat !== null) h += '</section>'; h += `<section class="sec"><h2>Category ${esc(T.cat)} <span class="n">${finals.filter(m => m.cat === T.cat && !m.stage).length} group results</span></h2>` + knockout(T.cat); lastCat = T.cat; }
       if (T.group) h += `<div class="subh">Group ${esc(T.group)}${S.keeper ? ` <button class="btn" style="font-family:var(--body);letter-spacing:0;text-transform:none;padding:3px 10px;font-size:13px" data-gedit="${esc(T.cat + '|' + T.group)}">Edit group</button>` : ''}</div>`;
       h += `<div class="tbl"><table><thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>L</th><th>Sets</th><th>Games</th><th>±</th></tr></thead><tbody>${rows.map((r, i) => {
         const d = r.GW - r.GL;
@@ -438,7 +467,7 @@ details.more[open] summary{margin-bottom:10px}
     });
     h += '</section>';
     if (S.keeper) h += `<div class="acts"><button class="btn pri" data-gedit="new">Add a group</button></div>`;
-    h += `<p class="note">Group stage. Ranked by wins, then set difference, then game difference. Only matches marked Final count.</p>`;
+    h += `<p class="note">Knockout results are listed at the top of each category. Group tables: ranked by wins, then set difference, then game difference. Only matches marked Final count.</p>`;
     return h;
   }
 
@@ -468,6 +497,7 @@ details.more[open] summary{margin-bottom:10px}
       <label>Court<input id="a-court" placeholder="Court 1"></label>
       <label class="full">Team 1<input id="a-t1" required placeholder="Player + Player"></label>
       <label class="full">Team 2<input id="a-t2" required placeholder="Player + Player"></label>
+      <label>Round<select id="a-stage">${stageOpts('')}</select></label>
       <label>Group (optional)<input id="a-group" placeholder="A"></label>
       <label>&nbsp;<button class="btn pri" type="submit">Add match</button></label>
     </form></section>`;
@@ -496,6 +526,7 @@ details.more[open] summary{margin-bottom:10px}
           <label>Status<select id="e-status"><option value="scheduled">Upcoming</option><option value="live">Live</option><option value="final">Final</option></select></label>
           <label>Time<input id="e-time" type="time" value="${esc(toInput(m.time))}"></label>
           <label>Court<input id="e-court" value="${esc(m.court)}"></label>
+          <label>Round<select id="e-stage">${stageOpts(m.stage || '')}</select></label>
           <label>Group<input id="e-group" value="${esc(m.group)}"></label>
           <label>Day<select id="e-day">${DAYS.map(d => `<option value="${d.n}" ${d.n === m.day ? 'selected' : ''}>Day ${d.n}</option>`).join('')}</select></label>
           <label>Category<select id="e-cat">${['B','C','D'].map(c => `<option ${c === m.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
@@ -642,7 +673,7 @@ details.more[open] summary{margin-bottom:10px}
       if (!v('a-t1') || !v('a-t2') || !v('a-time')) return toast('Fill in both teams and the time.');
       const day = +v('a-day'), cat = v('a-cat');
       const id = `d${day}-${cat}-${Date.now().toString(36)}`;
-      const doc = {day, cat, court: v('a-court'), time: fromInput(v('a-time')), t1: v('a-t1'), t2: v('a-t2'), group: v('a-group'), bo: 1, games: CAT_FMT[cat].games, tbAt: CAT_FMT[cat].tbAt, deuce: 'adv1', status: 'scheduled', s: [], g: {a: 0, b: 0}, winner: null, hist: [], t: 0};
+      const doc = {day, cat, court: v('a-court'), time: fromInput(v('a-time')), t1: v('a-t1'), t2: v('a-t2'), group: v('a-group'), stage: v('a-stage'), bo: 1, games: CAT_FMT[cat].games, tbAt: CAT_FMT[cat].tbAt, deuce: 'adv1', status: 'scheduled', s: [], g: {a: 0, b: 0}, winner: null, hist: [], t: 0};
       ['a-time','a-court','a-t1','a-t2'].forEach(i => $('#' + i).value = '');
       S.day = day;
       write(id, doc, true).then(() => toast('Match added.'));
@@ -651,7 +682,7 @@ details.more[open] summary{margin-bottom:10px}
       const m = M[S.open]; if (!m) return;
       const v = id => $('#' + id).value.trim();
       const s = parseSets(v('e-sets')); const status = v('e-status');
-      const patch = {t1: v('e-t1'), t2: v('e-t2'), time: fromInput(v('e-time')) || m.time, court: v('e-court'), group: v('e-group'), day: +v('e-day'), cat: v('e-cat'),
+      const patch = {t1: v('e-t1'), t2: v('e-t2'), time: fromInput(v('e-time')) || m.time, court: v('e-court'), group: v('e-group'), stage: v('e-stage'), day: +v('e-day'), cat: v('e-cat'),
         bo: +v('e-bo'), games: Math.max(1, +v('e-games') || 6), tbAt: Math.max(1, +v('e-tb') || 6), deuce: v('e-deuce'), s, status,
         winner: status === 'final' ? deriveWinner(s.map(x => [x.a, x.b])) : null, hist: pushHist(m), t: Date.now()};
       if (status !== 'live') patch.g = {a: 0, b: 0};
